@@ -17,7 +17,14 @@ type IndexTableEntry struct {
 	keypair   *Keypair
 }
 
-type IndexTable struct {
+type IndexTable interface {
+	Delete(idx uint32)
+	NewIndexForHandshake(peer *Peer, handshake *Handshake) (uint32, error)
+	Lookup(id uint32) IndexTableEntry
+	SwapIndexForKeypair(index uint32, keypair *Keypair)
+}
+
+type DefaultIndexTable struct {
 	sync.RWMutex
 	table map[uint32]IndexTableEntry
 }
@@ -29,19 +36,19 @@ func randUint32() (uint32, error) {
 	return binary.LittleEndian.Uint32(integer[:]), err
 }
 
-func (table *IndexTable) Init() {
-	table.Lock()
-	defer table.Unlock()
-	table.table = make(map[uint32]IndexTableEntry)
+func NewIndexTable() *DefaultIndexTable {
+	return &DefaultIndexTable{
+		table: make(map[uint32]IndexTableEntry),
+	}
 }
 
-func (table *IndexTable) Delete(index uint32) {
+func (table *DefaultIndexTable) Delete(index uint32) {
 	table.Lock()
 	defer table.Unlock()
 	delete(table.table, index)
 }
 
-func (table *IndexTable) SwapIndexForKeypair(index uint32, keypair *Keypair) {
+func (table *DefaultIndexTable) SwapIndexForKeypair(index uint32, keypair *Keypair) {
 	table.Lock()
 	defer table.Unlock()
 	entry, ok := table.table[index]
@@ -55,7 +62,7 @@ func (table *IndexTable) SwapIndexForKeypair(index uint32, keypair *Keypair) {
 	}
 }
 
-func (table *IndexTable) NewIndexForHandshake(peer *Peer, handshake *Handshake) (uint32, error) {
+func (table *DefaultIndexTable) NewIndexForHandshake(peer *Peer, handshake *Handshake) (uint32, error) {
 	for {
 		// generate random index
 
@@ -91,7 +98,7 @@ func (table *IndexTable) NewIndexForHandshake(peer *Peer, handshake *Handshake) 
 	}
 }
 
-func (table *IndexTable) Lookup(id uint32) IndexTableEntry {
+func (table *DefaultIndexTable) Lookup(id uint32) IndexTableEntry {
 	table.RLock()
 	defer table.RUnlock()
 	return table.table[id]

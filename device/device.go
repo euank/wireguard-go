@@ -281,7 +281,7 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 	return nil
 }
 
-func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
+func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger, opts ...DeviceOption) *Device {
 	device := new(Device)
 	device.state.state.Store(uint32(deviceStateDown))
 	device.closed = make(chan struct{})
@@ -296,7 +296,13 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	device.tun.mtu.Store(int32(mtu))
 	device.peers.keyMap = make(map[NoisePublicKey]*Peer)
 	device.rate.limiter.Init()
-	device.indexTable.Init()
+	// apply options
+	for _, opt := range opts {
+		opt(device)
+	}
+	if device.indexTable == nil {
+		device.indexTable = NewIndexTable()
+	}
 
 	device.PopulatePools()
 
