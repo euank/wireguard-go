@@ -107,18 +107,18 @@ func (e *StdNetEndpoint) ClearSrc() {
 }
 
 func (e *StdNetEndpoint) DstIP() netip.Addr {
-	return e.AddrPort.Addr()
+	return e.Addr()
 }
 
 // See control_default,linux, etc for implementations of SrcIP and SrcIfidx.
 
 func (e *StdNetEndpoint) DstToBytes() []byte {
-	b, _ := e.AddrPort.MarshalBinary()
+	b, _ := e.MarshalBinary()
 	return b
 }
 
 func (e *StdNetEndpoint) DstToString() string {
-	return e.AddrPort.String()
+	return e.String()
 }
 
 func listenNet(network string, port int) (*net.UDPConn, int, error) {
