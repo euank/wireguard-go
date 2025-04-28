@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"runtime"
@@ -44,10 +45,13 @@ type StdNetBind struct {
 
 	blackhole4 bool
 	blackhole6 bool
+
+	logger slog.Logger
 }
 
-func NewStdNetBind() Bind {
+func NewStdNetBind(logger slog.Logger) Bind {
 	return &StdNetBind{
+		logger: logger,
 		udpAddrPool: sync.Pool{
 			New: func() any {
 				return &net.UDPAddr{
@@ -162,12 +166,17 @@ again:
 	// Listen on the same port as we're using for ipv4.
 	v6conn, port, err = listenNet("udp6", port)
 	if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
-		v4conn.Close()
+		if err := v4conn.Close(); err != nil {
+			s.logger.Debug("error closing a v4Conn", "err", err)
+		}
 		tries++
 		goto again
 	}
 	if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
-		v4conn.Close()
+		closeErr := v4conn.Close()
+		if closeErr != nil {
+			s.logger.Debug("error closing a v4Conn after retrying", "err", err)
+		}
 		return nil, 0, err
 	}
 	var fns []ReceiveFunc
