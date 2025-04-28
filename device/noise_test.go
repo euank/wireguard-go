@@ -8,8 +8,10 @@ package device
 import (
 	"bytes"
 	"encoding/binary"
+	"log/slog"
 	"testing"
 
+	"github.com/peterldowns/testy/assert"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/tun/tuntest"
 )
@@ -34,13 +36,12 @@ func TestCurveWrappers(t *testing.T) {
 
 func randDevice(t *testing.T) *Device {
 	sk, err := newPrivateKey()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	tun := tuntest.NewChannelTUN()
-	logger := NewLogger(LogLevelError, "")
+	logger := slog.Default()
 	device := NewDevice(t.Context(), tun.TUN(), conn.NewDefaultBind(), logger)
-	device.SetPrivateKey(sk)
+	err = device.SetPrivateKey(sk)
+	assert.NoError(t, err)
 	return device
 }
 

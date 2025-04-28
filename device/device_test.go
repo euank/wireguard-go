@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/rand"
 	"net/netip"
 	"os"
@@ -164,11 +165,11 @@ func genTestPair(tb testing.TB, realSocket bool) (pair testPair) {
 		p := &pair[i]
 		p.tun = tuntest.NewChannelTUN()
 		p.ip = netip.AddrFrom4([4]byte{1, 0, 0, byte(i + 1)})
-		level := LogLevelVerbose
+		level := slog.LevelDebug
 		if _, ok := tb.(*testing.B); ok && !testing.Verbose() {
-			level = LogLevelError
+			level = slog.LevelError
 		}
-		p.dev = NewDevice(ctx, p.tun.TUN(), binds[i], NewLogger(level, fmt.Sprintf("dev%d: ", i)))
+		p.dev = NewDevice(ctx, p.tun.TUN(), binds[i], slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})).With("dev", i))
 		if err := p.dev.IpcSet(ctx, cfg[i]); err != nil {
 			tb.Errorf("failed to configure device %d: %v", i, err)
 			p.dev.Close()

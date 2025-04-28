@@ -8,6 +8,7 @@ package device
 import (
 	"container/list"
 	"errors"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -56,6 +57,7 @@ type Peer struct {
 	cookieGenerator             CookieGenerator
 	trieEntries                 list.List
 	persistentKeepaliveInterval atomic.Uint32
+	log                         *slog.Logger
 }
 
 func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
@@ -78,6 +80,7 @@ func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 	// create peer
 	peer := new(Peer)
 
+	peer.log = device.log.With("peer", peer)
 	peer.cookieGenerator.Init(pk)
 	peer.device = device
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
@@ -185,7 +188,7 @@ func (peer *Peer) Start() {
 	}
 
 	device := peer.device
-	device.log.Verbosef("%v - Starting", peer)
+	device.log.Debug("starting", "peer", peer)
 
 	// reset routine state
 	peer.stopping.Wait()
@@ -264,7 +267,7 @@ func (peer *Peer) Stop() {
 		return
 	}
 
-	peer.device.log.Verbosef("%v - Stopping", peer)
+	peer.device.log.Debug("stopping", "peer", peer)
 
 	peer.timersStop()
 	// Signal that RoutineSequentialSender and RoutineSequentialReceiver should exit.

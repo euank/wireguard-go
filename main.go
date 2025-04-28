@@ -10,6 +10,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"runtime"
@@ -100,16 +101,18 @@ func main() {
 
 	// get log level (default: info)
 
-	logLevel := func() int {
+	logLevel := func() slog.Level {
 		switch os.Getenv("LOG_LEVEL") {
 		case "verbose", "debug":
-			return device.LogLevelVerbose
-		case "error":
-			return device.LogLevelError
+			return slog.LevelDebug
 		case "silent":
-			return device.LogLevelSilent
+			return slog.LevelError + 8
+		case "error":
+			// default
+			fallthrough
+		default:
+			return slog.LevelError
 		}
-		return device.LogLevelError
 	}()
 
 	// open TUN device (or use supplied fd)
@@ -143,15 +146,14 @@ func main() {
 		}
 	}
 
-	logger := device.NewLogger(
-		logLevel,
-		fmt.Sprintf("(%s) ", interfaceName),
-	)
+	logger := slog.New(
+		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}),
+	).With("iface", interfaceName)
 
-	logger.Verbosef("Starting wireguard-go version %s", Version)
+	logger.Debug("Starting wireguard-go", "version", Version)
 
 	if err != nil {
-		logger.Errorf("Failed to create TUN device: %v", err)
+		logger.Error("failed to create TUN device", "err", err)
 		os.Exit(ExitSetupFailed)
 	}
 
@@ -173,7 +175,7 @@ func main() {
 		return os.NewFile(uintptr(fd), ""), nil
 	}()
 	if err != nil {
-		logger.Errorf("UAPI listen error: %v", err)
+		logger.Error("UAPI listen error", "err", err)
 		os.Exit(ExitSetupFailed)
 		return
 	}
@@ -185,7 +187,7 @@ func main() {
 		env = append(env, fmt.Sprintf("%s=4", ENV_WG_UAPI_FD))
 		env = append(env, fmt.Sprintf("%s=1", ENV_WG_PROCESS_FOREGROUND))
 		files := [3]*os.File{}
-		if os.Getenv("LOG_LEVEL") != "" && logLevel != device.LogLevelSilent {
+		if os.Getenv("LOG_LEVEL") != "" && logLevel <= slog.LevelError {
 			files[0], _ = os.Open(os.DevNull)
 			files[1] = os.Stdout
 			files[2] = os.Stderr
@@ -208,7 +210,7 @@ func main() {
 
 		path, err := os.Executable()
 		if err != nil {
-			logger.Errorf("Failed to determine executable: %v", err)
+			logger.Error("failed to determine executable", "err", err)
 			os.Exit(ExitSetupFailed)
 		}
 
@@ -218,7 +220,7 @@ func main() {
 			attr,
 		)
 		if err != nil {
-			logger.Errorf("Failed to daemonize: %v", err)
+			logger.Error("failed to daemonize", "err", err)
 			os.Exit(ExitSetupFailed)
 		}
 		process.Release()
@@ -227,14 +229,14 @@ func main() {
 
 	device := device.NewDevice(ctx, tdev, conn.NewDefaultBind(), logger)
 
-	logger.Verbosef("Device started")
+	logger.Debug("device started")
 
 	errs := make(chan error)
 	term := make(chan os.Signal, 1)
 
 	uapi, err := ipc.UAPIListen(interfaceName, fileUAPI)
 	if err != nil {
-		logger.Errorf("Failed to listen on uapi socket: %v", err)
+		logger.Error("failed to listen on uapi socket", "err", err)
 		os.Exit(ExitSetupFailed)
 	}
 
@@ -249,7 +251,7 @@ func main() {
 		}
 	}()
 
-	logger.Verbosef("UAPI listener started")
+	logger.Debug("UAPI listener started")
 
 	// wait for program to terminate
 
@@ -267,5 +269,5 @@ func main() {
 	uapi.Close()
 	device.Close()
 
-	logger.Verbosef("Shutting down")
+	logger.Debug("Shutting down")
 }

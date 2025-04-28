@@ -7,6 +7,7 @@ package device
 
 import (
 	"context"
+	"log/slog"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -89,7 +90,7 @@ type Device struct {
 
 	ipcMutex sync.RWMutex
 	closed   chan struct{}
-	log      *Logger
+	log      *slog.Logger
 }
 
 // deviceState represents the state of a Device.
@@ -143,7 +144,7 @@ func (device *Device) changeState(ctx context.Context, want deviceState) (err er
 	old := device.deviceState()
 	if old == deviceStateClosed {
 		// once closed, always closed
-		device.log.Verbosef("Interface closed, ignored requested state %s", want)
+		device.log.Debug("interface closed, ignored request", "requested state", want)
 		return nil
 	}
 	switch want {
@@ -163,7 +164,7 @@ func (device *Device) changeState(ctx context.Context, want deviceState) (err er
 			err = errDown
 		}
 	}
-	device.log.Verbosef("Interface state was %s, requested %s, now %s", old, want, device.deviceState())
+	device.log.Debug("interface state change", "was", old, "requested", want, "now", device.deviceState())
 	return
 }
 
@@ -171,7 +172,7 @@ func (device *Device) changeState(ctx context.Context, want deviceState) (err er
 // The caller must hold device.state.mu and is responsible for updating device.state.state.
 func (device *Device) upLocked(ctx context.Context) error {
 	if err := device.BindUpdate(ctx); err != nil {
-		device.log.Errorf("Unable to update bind: %v", err)
+		device.log.Error("unable to update bind", "err", err)
 		return err
 	}
 
@@ -196,7 +197,7 @@ func (device *Device) upLocked(ctx context.Context) error {
 func (device *Device) downLocked() error {
 	err := device.BindClose()
 	if err != nil {
-		device.log.Errorf("Bind close failed: %v", err)
+		device.log.Error("bind close failed", "err", err)
 	}
 
 	device.peers.RLock()
@@ -282,7 +283,7 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 	return nil
 }
 
-func NewDevice(ctx context.Context, tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
+func NewDevice(ctx context.Context, tunDevice tun.Device, bind conn.Bind, logger *slog.Logger) *Device {
 	device := new(Device)
 	device.state.state.Store(uint32(deviceStateDown))
 	device.closed = make(chan struct{})
@@ -291,7 +292,7 @@ func NewDevice(ctx context.Context, tunDevice tun.Device, bind conn.Bind, logger
 	device.tun.device = tunDevice
 	mtu, err := device.tun.device.MTU()
 	if err != nil {
-		device.log.Errorf("Trouble determining MTU, assuming default: %v", err)
+		device.log.Error("trouble determining MTU, assuming default", "err", err)
 		mtu = DefaultMTU
 	}
 	device.tun.mtu.Store(int32(mtu))
@@ -377,7 +378,7 @@ func (device *Device) Close() {
 		return
 	}
 	device.state.state.Store(uint32(deviceStateClosed))
-	device.log.Verbosef("Device closing")
+	device.log.Debug("device closing")
 
 	device.tun.device.Close()
 	device.downLocked()
@@ -396,7 +397,7 @@ func (device *Device) Close() {
 
 	device.rate.limiter.Close()
 
-	device.log.Verbosef("Device closed")
+	device.log.Debug("device closed")
 	close(device.closed)
 }
 
@@ -525,7 +526,7 @@ func (device *Device) BindUpdate(ctx context.Context) error {
 		go device.RoutineReceiveIncoming(batchSize, fn)
 	}
 
-	device.log.Verbosef("UDP bind has been updated")
+	device.log.Debug("UDP bind has been updated")
 	return nil
 }
 

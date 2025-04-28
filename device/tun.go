@@ -7,7 +7,6 @@ package device
 
 import (
 	"context"
-	"fmt"
 
 	"golang.zx2c4.com/wireguard/tun"
 )
@@ -15,40 +14,44 @@ import (
 const DefaultMTU = 1420
 
 func (device *Device) RoutineTUNEventReader(ctx context.Context) {
-	device.log.Verbosef("Routine: event worker - started")
+	device.log.Debug("routine: event worker - started")
 
 	for event := range device.tun.device.Events() {
 		if event&tun.EventMTUUpdate != 0 {
 			mtu, err := device.tun.device.MTU()
 			if err != nil {
-				device.log.Errorf("Failed to load updated MTU of device: %v", err)
+				device.log.Error("failed to load updated MTU of device", "err", err)
 				continue
 			}
 			if mtu < 0 {
-				device.log.Errorf("MTU not updated to negative value: %v", mtu)
+				device.log.Error("MTU not updated to negative value", "err", mtu)
 				continue
 			}
-			var tooLarge string
+			var tooLarge bool
 			if mtu > MaxContentSize {
-				tooLarge = fmt.Sprintf(" (too large, capped at %v)", MaxContentSize)
+				tooLarge = true
 				mtu = MaxContentSize
 			}
 			old := device.tun.mtu.Swap(int32(mtu))
 			if int(old) != mtu {
-				device.log.Verbosef("MTU updated: %v%s", mtu, tooLarge)
+				if tooLarge {
+					device.log.Debug("MTU updated", "mtu", mtu, "old", old, "cappedAt", MaxContentSize)
+				} else {
+					device.log.Debug("MTU updated", "mtu", mtu, "old", old)
+				}
 			}
 		}
 
 		if event&tun.EventUp != 0 {
-			device.log.Verbosef("Interface up requested")
+			device.log.Debug("interface up requested")
 			device.Up(ctx)
 		}
 
 		if event&tun.EventDown != 0 {
-			device.log.Verbosef("Interface down requested")
+			device.log.Debug("interface down requested")
 			device.Down(ctx)
 		}
 	}
 
-	device.log.Verbosef("Routine: event worker - stopped")
+	device.log.Debug("routine: event worker - stopped")
 }
