@@ -6,6 +6,7 @@
 package bindtest
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -67,7 +68,7 @@ func (c ChannelEndpoint) DstIP() netip.Addr { return netip.AddrFrom4([4]byte{127
 
 func (c ChannelEndpoint) SrcIP() netip.Addr { return netip.Addr{} }
 
-func (c *ChannelBind) Open(port uint16) (fns []conn.ReceiveFunc, actualPort uint16, err error) {
+func (c *ChannelBind) Open(_ context.Context, port uint16) (fns []conn.ReceiveFunc, actualPort uint16, err error) {
 	c.closeSignal = make(chan bool)
 	fns = append(fns, c.makeReceiveFunc(*c.rx4))
 	fns = append(fns, c.makeReceiveFunc(*c.rx6))

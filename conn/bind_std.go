@@ -46,10 +46,10 @@ type StdNetBind struct {
 	blackhole4 bool
 	blackhole6 bool
 
-	logger slog.Logger
+	logger *slog.Logger
 }
 
-func NewStdNetBind(logger slog.Logger) Bind {
+func NewStdNetBind(logger *slog.Logger) Bind {
 	return &StdNetBind{
 		logger: logger,
 		udpAddrPool: sync.Pool{
@@ -121,7 +121,7 @@ func (e *StdNetEndpoint) DstToString() string {
 	return e.String()
 }
 
-func listenNet(network string, port int) (*net.UDPConn, int, error) {
+func listenNet(ctx context.Context, network string, port int) (*net.UDPConn, int, error) {
 	conn, err := listenConfig().ListenPacket(context.Background(), network, ":"+strconv.Itoa(port))
 	if err != nil {
 		return nil, 0, err
@@ -139,7 +139,7 @@ func listenNet(network string, port int) (*net.UDPConn, int, error) {
 	return conn.(*net.UDPConn), uaddr.Port, nil
 }
 
-func (s *StdNetBind) Open(uport uint16) ([]ReceiveFunc, uint16, error) {
+func (s *StdNetBind) Open(ctx context.Context, uport uint16) ([]ReceiveFunc, uint16, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -158,13 +158,13 @@ again:
 	var v4pc *ipv4.PacketConn
 	var v6pc *ipv6.PacketConn
 
-	v4conn, port, err = listenNet("udp4", port)
+	v4conn, port, err = listenNet(ctx, "udp4", port)
 	if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
 		return nil, 0, err
 	}
 
 	// Listen on the same port as we're using for ipv4.
-	v6conn, port, err = listenNet("udp6", port)
+	v6conn, port, err = listenNet(ctx, "udp6", port)
 	if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
 		if err := v4conn.Close(); err != nil {
 			s.logger.Debug("error closing a v4Conn", "err", err)

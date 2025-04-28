@@ -7,4 +7,6 @@
 
 package conn
 
-func NewDefaultBind() Bind { return NewStdNetBind() }
+import "log/slog"
+
+func NewDefaultBind() Bind { return NewStdNetBind(slog.Default()) }

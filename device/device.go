@@ -6,6 +6,7 @@
 package device
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -136,7 +137,7 @@ func removePeerLocked(device *Device, peer *Peer, key NoisePublicKey) {
 }
 
 // changeState attempts to change the device state to match want.
-func (device *Device) changeState(want deviceState) (err error) {
+func (device *Device) changeState(ctx context.Context, want deviceState) (err error) {
 	device.state.Lock()
 	defer device.state.Unlock()
 	old := device.deviceState()
@@ -150,7 +151,7 @@ func (device *Device) changeState(want deviceState) (err error) {
 		return nil
 	case deviceStateUp:
 		device.state.state.Store(uint32(deviceStateUp))
-		err = device.upLocked()
+		err = device.upLocked(ctx)
 		if err == nil {
 			break
 		}
@@ -168,8 +169,8 @@ func (device *Device) changeState(want deviceState) (err error) {
 
 // upLocked attempts to bring the device up and reports whether it succeeded.
 // The caller must hold device.state.mu and is responsible for updating device.state.state.
-func (device *Device) upLocked() error {
-	if err := device.BindUpdate(); err != nil {
+func (device *Device) upLocked(ctx context.Context) error {
+	if err := device.BindUpdate(ctx); err != nil {
 		device.log.Errorf("Unable to update bind: %v", err)
 		return err
 	}
@@ -206,12 +207,12 @@ func (device *Device) downLocked() error {
 	return err
 }
 
-func (device *Device) Up() error {
-	return device.changeState(deviceStateUp)
+func (device *Device) Up(ctx context.Context) error {
+	return device.changeState(ctx, deviceStateUp)
 }
 
-func (device *Device) Down() error {
-	return device.changeState(deviceStateDown)
+func (device *Device) Down(ctx context.Context) error {
+	return device.changeState(ctx, deviceStateDown)
 }
 
 func (device *Device) IsUnderLoad() bool {
@@ -281,7 +282,7 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 	return nil
 }
 
-func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
+func NewDevice(ctx context.Context, tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	device := new(Device)
 	device.state.state.Store(uint32(deviceStateDown))
 	device.closed = make(chan struct{})
@@ -320,7 +321,7 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	device.state.stopping.Add(1)      // RoutineReadFromTUN
 	device.queue.encryption.wg.Add(1) // RoutineReadFromTUN
 	go device.RoutineReadFromTUN()
-	go device.RoutineTUNEventReader()
+	go device.RoutineTUNEventReader(ctx)
 
 	return device
 }
@@ -468,7 +469,7 @@ func (device *Device) BindSetMark(mark uint32) error {
 	return nil
 }
 
-func (device *Device) BindUpdate() error {
+func (device *Device) BindUpdate(ctx context.Context) error {
 	device.net.Lock()
 	defer device.net.Unlock()
 
@@ -487,7 +488,7 @@ func (device *Device) BindUpdate() error {
 	var recvFns []conn.ReceiveFunc
 	netc := &device.net
 
-	recvFns, netc.port, err = netc.bind.Open(netc.port)
+	recvFns, netc.port, err = netc.bind.Open(ctx, netc.port)
 	if err != nil {
 		netc.port = 0
 		return err

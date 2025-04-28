@@ -7,6 +7,7 @@ package device
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -150,6 +151,7 @@ func (pair *testPair) Send(tb testing.TB, ping SendDirection, done chan struct{}
 
 // genTestPair creates a testPair.
 func genTestPair(tb testing.TB, realSocket bool) (pair testPair) {
+	ctx := tb.Context()
 	cfg, endpointCfg := genConfigs(tb)
 	var binds [2]conn.Bind
 	if realSocket {
@@ -166,13 +168,13 @@ func genTestPair(tb testing.TB, realSocket bool) (pair testPair) {
 		if _, ok := tb.(*testing.B); ok && !testing.Verbose() {
 			level = LogLevelError
 		}
-		p.dev = NewDevice(p.tun.TUN(), binds[i], NewLogger(level, fmt.Sprintf("dev%d: ", i)))
-		if err := p.dev.IpcSet(cfg[i]); err != nil {
+		p.dev = NewDevice(ctx, p.tun.TUN(), binds[i], NewLogger(level, fmt.Sprintf("dev%d: ", i)))
+		if err := p.dev.IpcSet(ctx, cfg[i]); err != nil {
 			tb.Errorf("failed to configure device %d: %v", i, err)
 			p.dev.Close()
 			continue
 		}
-		if err := p.dev.Up(); err != nil {
+		if err := p.dev.Up(ctx); err != nil {
 			tb.Errorf("failed to bring up device %d: %v", i, err)
 			p.dev.Close()
 			continue
@@ -181,7 +183,7 @@ func genTestPair(tb testing.TB, realSocket bool) (pair testPair) {
 	}
 	for i := range pair {
 		p := &pair[i]
-		if err := p.dev.IpcSet(endpointCfg[i]); err != nil {
+		if err := p.dev.IpcSet(ctx, endpointCfg[i]); err != nil {
 			tb.Errorf("failed to configure device endpoint %d: %v", i, err)
 			p.dev.Close()
 			continue
@@ -204,6 +206,7 @@ func TestTwoDevicePing(t *testing.T) {
 }
 
 func TestUpDown(t *testing.T) {
+	ctx := t.Context()
 	goroutineLeakCheck(t)
 	const itrials = 50
 	const otrials = 10
@@ -212,7 +215,7 @@ func TestUpDown(t *testing.T) {
 		pair := genTestPair(t, false)
 		for i := range pair {
 			for k := range pair[i].dev.peers.keyMap {
-				pair[i].dev.IpcSet(fmt.Sprintf("public_key=%s\npersistent_keepalive_interval=1\n", hex.EncodeToString(k[:])))
+				pair[i].dev.IpcSet(ctx, fmt.Sprintf("public_key=%s\npersistent_keepalive_interval=1\n", hex.EncodeToString(k[:])))
 			}
 		}
 		var wg sync.WaitGroup
@@ -221,11 +224,11 @@ func TestUpDown(t *testing.T) {
 			go func(d *Device) {
 				defer wg.Done()
 				for i := 0; i < itrials; i++ {
-					if err := d.Up(); err != nil {
+					if err := d.Up(ctx); err != nil {
 						t.Errorf("failed up bring up device: %v", err)
 					}
 					time.Sleep(time.Duration(rand.Intn(int(time.Nanosecond * (0x10000 - 1)))))
-					if err := d.Down(); err != nil {
+					if err := d.Down(ctx); err != nil {
 						t.Errorf("failed to bring down device: %v", err)
 					}
 					time.Sleep(time.Duration(rand.Intn(int(time.Nanosecond * (0x10000 - 1)))))
@@ -234,7 +237,7 @@ func TestUpDown(t *testing.T) {
 		}
 		wg.Wait()
 		for i := range pair {
-			pair[i].dev.Up()
+			pair[i].dev.Up(ctx)
 			pair[i].dev.Close()
 		}
 	}
@@ -243,6 +246,7 @@ func TestUpDown(t *testing.T) {
 // TestConcurrencySafety does other things concurrently with tunnel use.
 // It is intended to be used with the race detector to catch data races.
 func TestConcurrencySafety(t *testing.T) {
+	ctx := t.Context()
 	pair := genTestPair(t, true)
 	done := make(chan struct{})
 
@@ -270,7 +274,7 @@ func TestConcurrencySafety(t *testing.T) {
 	warmup.Wait()
 
 	applyCfg := func(cfg string) {
-		err := pair[0].dev.IpcSet(cfg)
+		err := pair[0].dev.IpcSet(ctx, cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -314,7 +318,7 @@ func TestConcurrencySafety(t *testing.T) {
 		const iters = 10
 		for i := 0; i < iters; i++ {
 			for _, peer := range pair {
-				peer.dev.BindUpdate()
+				peer.dev.BindUpdate(t.Context())
 				peer.dev.SendKeepalivesToPeersWithCurrentKeypair()
 			}
 		}
@@ -423,7 +427,7 @@ type fakeBindSized struct {
 	size int
 }
 
-func (b *fakeBindSized) Open(port uint16) (fns []conn.ReceiveFunc, actualPort uint16, err error) {
+func (b *fakeBindSized) Open(ctx context.Context, port uint16) (fns []conn.ReceiveFunc, actualPort uint16, err error) {
 	return nil, 0, nil
 }
 func (b *fakeBindSized) Close() error                                  { return nil }

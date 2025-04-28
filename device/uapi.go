@@ -8,6 +8,7 @@ package device
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -137,7 +138,7 @@ func (device *Device) IpcGetOperation(w io.Writer) error {
 
 // IpcSetOperation implements the WireGuard configuration protocol "set" operation.
 // See https://www.wireguard.com/xplatform/#configuration-protocol for details.
-func (device *Device) IpcSetOperation(r io.Reader) (err error) {
+func (device *Device) IpcSetOperation(ctx context.Context, r io.Reader) (err error) {
 	device.ipcMutex.Lock()
 	defer device.ipcMutex.Unlock()
 
@@ -178,7 +179,7 @@ func (device *Device) IpcSetOperation(r io.Reader) (err error) {
 
 		var err error
 		if deviceConfig {
-			err = device.handleDeviceLine(key, value)
+			err = device.handleDeviceLine(ctx, key, value)
 		} else {
 			err = device.handlePeerLine(peer, key, value)
 		}
@@ -194,7 +195,7 @@ func (device *Device) IpcSetOperation(r io.Reader) (err error) {
 	return nil
 }
 
-func (device *Device) handleDeviceLine(key, value string) error {
+func (device *Device) handleDeviceLine(ctx context.Context, key, value string) error {
 	switch key {
 	case "private_key":
 		var sk NoisePrivateKey
@@ -218,7 +219,7 @@ func (device *Device) handleDeviceLine(key, value string) error {
 		device.net.port = uint16(port)
 		device.net.Unlock()
 
-		if err := device.BindUpdate(); err != nil {
+		if err := device.BindUpdate(ctx); err != nil {
 			return ipcErrorf(ipc.IpcErrorPortInUse, "failed to set listen_port: %w", err)
 		}
 
@@ -401,11 +402,11 @@ func (device *Device) IpcGet() (string, error) {
 	return buf.String(), nil
 }
 
-func (device *Device) IpcSet(uapiConf string) error {
-	return device.IpcSetOperation(strings.NewReader(uapiConf))
+func (device *Device) IpcSet(ctx context.Context, uapiConf string) error {
+	return device.IpcSetOperation(ctx, strings.NewReader(uapiConf))
 }
 
-func (device *Device) IpcHandle(socket net.Conn) {
+func (device *Device) IpcHandle(ctx context.Context, socket net.Conn) {
 	defer socket.Close()
 
 	buffered := func(s io.ReadWriter) *bufio.ReadWriter {
@@ -423,7 +424,7 @@ func (device *Device) IpcHandle(socket net.Conn) {
 		// handle operation
 		switch op {
 		case "set=1\n":
-			err = device.IpcSetOperation(buffered.Reader)
+			err = device.IpcSetOperation(ctx, buffered.Reader)
 		case "get=1\n":
 			var nextByte byte
 			nextByte, err = buffered.ReadByte()

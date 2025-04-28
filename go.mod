@@ -1,10 +1,11 @@
 module golang.zx2c4.com/wireguard
 
-go 1.23.1
+go 1.24.0
 
 toolchain go1.24.1
 
 require (
+	github.com/peterldowns/testy v0.0.6
 	golang.org/x/crypto v0.28.0
 	golang.org/x/net v0.30.0
 	golang.org/x/sys v0.26.0
@@ -14,5 +15,6 @@ require (
 
 require (
 	github.com/google/btree v1.1.2 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
 )

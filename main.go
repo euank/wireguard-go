@@ -8,6 +8,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -58,6 +59,8 @@ func warning() {
 }
 
 func main() {
+	ctx := context.Background()
+
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		fmt.Printf("wireguard-go v%s\n\nUserspace WireGuard daemon for %s-%s.\nInformation available at https://www.wireguard.com.\nCopyright (C) Jason A. Donenfeld <Jason@zx2c4.com>.\n", Version, runtime.GOOS, runtime.GOARCH)
 		return
@@ -222,7 +225,7 @@ func main() {
 		return
 	}
 
-	device := device.NewDevice(tdev, conn.NewDefaultBind(), logger)
+	device := device.NewDevice(ctx, tdev, conn.NewDefaultBind(), logger)
 
 	logger.Verbosef("Device started")
 
@@ -242,7 +245,7 @@ func main() {
 				errs <- err
 				return
 			}
-			go device.IpcHandle(conn)
+			go device.IpcHandle(ctx, conn)
 		}
 	}()
 

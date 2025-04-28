@@ -6,6 +6,7 @@
 package device
 
 import (
+	"context"
 	"fmt"
 
 	"golang.zx2c4.com/wireguard/tun"
@@ -13,7 +14,7 @@ import (
 
 const DefaultMTU = 1420
 
-func (device *Device) RoutineTUNEventReader() {
+func (device *Device) RoutineTUNEventReader(ctx context.Context) {
 	device.log.Verbosef("Routine: event worker - started")
 
 	for event := range device.tun.device.Events() {
@@ -40,12 +41,12 @@ func (device *Device) RoutineTUNEventReader() {
 
 		if event&tun.EventUp != 0 {
 			device.log.Verbosef("Interface up requested")
-			device.Up()
+			device.Up(ctx)
 		}
 
 		if event&tun.EventDown != 0 {
 			device.log.Verbosef("Interface down requested")
-			device.Down()
+			device.Down(ctx)
 		}
 	}
 

@@ -2,19 +2,21 @@ package conn
 
 import (
 	"encoding/binary"
+	"log/slog"
 	"net"
 	"testing"
 
+	"github.com/peterldowns/testy/assert"
 	"golang.org/x/net/ipv6"
 )
 
 func TestStdNetBindReceiveFuncAfterClose(t *testing.T) {
-	bind := NewStdNetBind().(*StdNetBind)
-	fns, _, err := bind.Open(0)
+	bind := NewStdNetBind(slog.Default()).(*StdNetBind)
+	fns, _, err := bind.Open(t.Context(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bind.Close()
+	assert.NoError(t, bind.Close())
 	bufs := make([][]byte, 1)
 	bufs[0] = make([]byte, 1)
 	sizes := make([]int, 1)
