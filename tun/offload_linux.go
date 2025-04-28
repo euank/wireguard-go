@@ -12,8 +12,8 @@ import (
 	"io"
 	"unsafe"
 
+	"go.euank.com/wireguard/conn"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/conn"
 )
 
 const tcpFlagsOffset = 13

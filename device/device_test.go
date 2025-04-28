@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"golang.zx2c4.com/wireguard/conn"
-	"golang.zx2c4.com/wireguard/conn/bindtest"
-	"golang.zx2c4.com/wireguard/tun"
-	"golang.zx2c4.com/wireguard/tun/tuntest"
+	"go.euank.com/wireguard/conn"
+	"go.euank.com/wireguard/conn/bindtest"
+	"go.euank.com/wireguard/tun"
+	"go.euank.com/wireguard/tun/tuntest"
 )
 
 // uapiCfg returns a string that contains cfg formatted use with IpcSet.

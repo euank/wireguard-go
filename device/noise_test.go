@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/peterldowns/testy/assert"
-	"golang.zx2c4.com/wireguard/conn"
-	"golang.zx2c4.com/wireguard/tun/tuntest"
+	"go.euank.com/wireguard/conn"
+	"go.euank.com/wireguard/tun/tuntest"
 )
 
 func TestCurveWrappers(t *testing.T) {

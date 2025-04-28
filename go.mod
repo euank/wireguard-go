@@ -1,4 +1,4 @@
-module golang.zx2c4.com/wireguard
+module go.euank.com/wireguard
 
 go 1.24.0
 

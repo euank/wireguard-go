@@ -16,11 +16,11 @@ import (
 	"runtime"
 	"strconv"
 
+	"go.euank.com/wireguard/conn"
+	"go.euank.com/wireguard/device"
+	"go.euank.com/wireguard/ipc"
+	"go.euank.com/wireguard/tun"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/conn"
-	"golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/ipc"
-	"golang.zx2c4.com/wireguard/tun"
 )
 
 const (
