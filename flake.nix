@@ -16,6 +16,9 @@
       {
         formatter = pkgs.treefmt;
         devShells.default = pkgs.mkShell {
+
+          IN_NIX_DEVSHELL = 1;
+
           packages = with pkgs; [
             go
             golangci-lint
