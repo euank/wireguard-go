@@ -1,0 +1,10 @@
+name: unit-tests
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@526118121621777ccd86f79b04685a9319637641
+    - name: unit-tests
+      run: ./develop/ci/unit-tests.sh
