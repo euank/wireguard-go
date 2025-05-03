@@ -21,6 +21,7 @@
             golangci-lint
             gofumpt
             nixfmt-rfc-style
+            treefmt
           ];
         };
       }
